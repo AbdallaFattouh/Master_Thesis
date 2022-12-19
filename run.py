@@ -9,9 +9,9 @@ import numpy as np
 
 energie_dichte = 4.24  #[Mj/kg]
 
-dichte = 2320.0 #[kg/m^3]
+dichte = 700.0 #[kg/m^3]
 
-waermemenge = 306.06  #[GWh]
+waermemenge = 7.64  #[GWh]
 
 preis = 0.125  #[€/kg]
 
@@ -33,13 +33,21 @@ wasser_wasser_rohr = 10 #[€/kw]
 
 abgas_wasser = 50 #[€/kw]
 
-lebensdauer = 25  # Jahre
+lebensdauer = 20  # Jahre
 
 discount_rate = 0.02  # %
 
 solarthermie_kosten = 5 #[€/kWh]
 
 abwärme_kosten = 5 #[€/kWh]
+
+anschluss_tcs = 750 #[€/kW]
+
+wm_list = [312.06, 57.75, 20.68, 18.84, 7.64, 2.72]
+
+wm_names = ["groß", "mittel mit ausgedehntem","mittel", "mittel kleink", "klein", "Landesgemeinde"]
+
+leistung = [142560, 38880, 12960, 12960, 6480, 6480]
 
 
 "#####################CLASS########################"
@@ -75,8 +83,8 @@ class material:
 #Berechnung Silo kosten in [€]
 
     def silo_kosten(self):
-        silo_ko = (self.material_menge() / dichte) * silo
-        print("silo kosten", silo_ko, "[€]")
+        silo_ko = (self.material_menge() / self.dichte) * silo
+        #print("silo kosten", silo_ko, "[€]")
         return silo_ko
 
 
@@ -86,7 +94,7 @@ class material:
         wi_kosten = (waermemenge * 1000000) * (wirbelschicht_preis / 4380)  # 4380 Winterstunden im Jahr (8760/2)
         #wi_wartungs_kosten = wi_kosten * 0.1 * lebensdauer # Wartungskosten 1%
         #wi_kosten = wi_kosten + wi_wartungs_kosten
-        print("wirbelschichtreaktor kosten", wi_kosten, "[€]")
+        #print("wirbelschichtreaktor kosten", wi_kosten, "[€]")
         return wi_kosten
 
 
@@ -106,11 +114,11 @@ class material:
         print(transp_kosten)
         return transp_kosten
 
-
+#Berechnet die Kosten der verschiedenen Wärmetauscher
 
     def tauscher_luft_wasser(self):
 
-        tausher_preis = waermemenge * 1000000 * (luft_wasser_rippenrohr/4380)  # 4380 Winterstunden im Jahr (8760/2)
+        tausher_preis = waermemenge * 1000000 * (luft_wasser_rippenrohr/2190)  # 4380 Winterstunden im Jahr (8760/2)
         print("yyyyyyy", tausher_preis)
         return tausher_preis
 
@@ -131,28 +139,27 @@ class material:
         return tausher_preis
 
 
-    def lcos_cap_sz1(self):
+#Berechnet die Anschlusskosten
 
-        lcos_cap = (self.material_kosten() + self.silo_kosten() + self.wirbel_kosten()) /(waermemenge * 1000000)  #Anbindungskosten fehlen noch
-        print(lcos_cap, "IIIIIIII")
-        return lcos_cap
+    def anschluss(self):
 
-    def lcos_om_sz1(self):
+        anschluss_preis = (anschluss_tcs/2190) * (waermemenge * 1000000)
 
-        OM = (self.silo_kosten() * 0.02 + self.wirbel_kosten() * 0.01)   #Anbindungskosten OM fehlt noch
+        return anschluss_preis
+
+
+#Service Wartungskosten
+
+    def wartung(self):
+
+        om = ((self.wirbel_kosten()*0.01) + (self.silo_kosten()*0.02) + (self.anschluss() * 0.015))
 
         for i in range(1, lebensdauer + 1):
-            lcos_om = ((OM) / (1 + discount_rate) ** i)
+            wartungskosten = ((om) / (1 + discount_rate) ** i)
 
-        lcos_om = OM / (waermemenge * 1000000)
-        #print(lcos_om, "###########")
-        return lcos_om
+        return wartungskosten
 
-    def lcos_sz1(self):
 
-        lcos_sz1 = (self.lcos_cap_sz1() + self.lcos_om_sz1()) / (waermemenge * 1000000)
-
-        return lcos_sz1
 ############Maintanance###########
 
 
@@ -166,9 +173,12 @@ class material:
         ax = []
         grid = ()
         x = self.name
-        y1 = self.material_kosten() / (waermemenge * 1000)
-        y2 = self.silo_kosten() / (waermemenge * 10000)
-        y3 = self.wirbel_kosten() / (waermemenge * 1000)
+        y1 = (self.material_kosten() / (waermemenge * 1000))/lebensdauer
+        y2 = (self.silo_kosten() / (waermemenge * 1000))/lebensdauer
+        y3 = (self.wirbel_kosten() / (waermemenge * 1000))/lebensdauer
+        y4 = (self.tauscher_luft_wasser() / (waermemenge * 1000))/lebensdauer
+        y5 = (self.anschluss() / (waermemenge * 1000))/lebensdauer
+        y6 = ((self.wartung()) / (waermemenge * 1000))
 
         #adding list y1 and y2
         #for (y1, y2) in zip(y1, y2):
@@ -178,13 +188,17 @@ class material:
         plt.bar(x, y1, color='g', width=width, zorder=3)
         plt.bar(x, y2, bottom=y1, color='y', width=width, zorder=3)
         plt.bar(x, y3, bottom=y1+y2, color='b', width=width, zorder=3)
+        plt.bar(x, 2*y4, bottom=y1+y2+y3, color='r', width=width, zorder=3)      # 2*y4, weil zwei Luft/wasser Wärmetauscher benötigt werden
+        plt.bar(x, y5, bottom=y1+y2+y3+y4, color='k', width=width, zorder=3)
+        plt.bar(x, y6, bottom=y1+y2+y3+y4+y5, color='c', width=width, zorder=3)
+
 
 
         #plotting axes and legend
 
         plt.ylabel("Kosten [€/MWh]")
 
-        colors = {'Material': 'green', 'Silo': 'yellow', 'Wirbelstoffreaktor' : 'blue' }
+        colors = {'Material': 'green', 'Silo': 'yellow', 'Wirbelstoffreaktor': 'blue', 'Wärmetauscher': 'red', 'Anschlusskosten': 'black', 'Wartung': 'c'}
         labels = list(colors.keys())
         handles = [plt.Rectangle((0, 0), 1, 1, color=colors[label]) for label in labels]
         plt.legend(handles, labels)
@@ -203,6 +217,9 @@ class material:
         y1 = self.material_kosten()
         y2 = self.silo_kosten()
         y3 = self.wirbel_kosten()
+        y4 = self.tauscher_luft_wasser()
+        y5 = self.anschluss()
+        y6 = self.wartung()
 
         #adding list y1 and y2
         #for (y1, y2) in zip(y1, y2):
@@ -212,13 +229,15 @@ class material:
         plt.bar(x, y1, color='g', width=width, zorder=3)
         plt.bar(x, y2, bottom=y1, color='y', width=width, zorder=3)
         plt.bar(x, y3, bottom=y1+y2, color='b', width=width, zorder=3)
-
+        plt.bar(x, 2*y4, bottom=y1+y2+y3, color='r', width=width, zorder=3)
+        plt.bar(x, y5, bottom=y1+y2+y3+y4, color='k', width=width, zorder=3)
+        plt.bar(x, y6, bottom=y1+y2+y3+y4+y5, color='c', width=width, zorder=3)
 
         #plotting axes and legend
 
         plt.ylabel("Kosten [€]")
 
-        colors = {'Material': 'green', 'Silo': 'yellow', 'Wirbelstoffreaktor' : 'blue' }
+        colors = {'Material': 'green', 'Silo': 'yellow', 'Wirbelstoffreaktor' : 'blue', 'Wärmetauscher': 'red', 'Anschlusskosten': 'black', 'Wartung': 'c' }
         labels = list(colors.keys())
         handles = [plt.Rectangle((0, 0), 1, 1, color=colors[label]) for label in labels]
         plt.legend(handles, labels)
@@ -258,15 +277,24 @@ class material:
         # plt.show()
 
 
+
+
+
+
+
+
+
+
 #"################Definition Materialien(energie, dichte, preis, name)###########################"
 
 #Hydrate
 Mgcl2 = material(4.24, 2320.0, 0.125, "Mgcl2")
+
 Mgso4 = material(3.61, 1670, 0.15, "Mgso4")
 
 #Zeolith
-Zeolith13x = material(0.65, 700.0, 1.28, "Zeolith13x")
-Zeolith4a = material(0.86, 750, 1.28, "Zeolith4a")
+Zeolith13x = material(0.86, 700.0, 0.96, "Zeolith13x")
+Zeolith4a = material(0.65, 750, 1.28, "Zeolith4a")
 
 #Oxide
 Sio2 = material(32.43, 2500, 0.5, "Sio2")
@@ -275,52 +303,33 @@ Mgo = material(24.75, 3580, 0.15, "Mgo")
 
 
 
-Zeolith4a.plot_lcos()
-Mgcl2.plot_lcos()
-Mgso4.plot_lcos()
 
+
+Mgso4.plot_mwh()
+Mgcl2.plot_mwh()
+Zeolith4a.plot_mwh()
+
+Zeolith13x.plot_mwh()
 
 
 plt.show()
 
 
-
-def material_menge(energie_dichte,waermemenge):
-    menge = (waermemenge*1000)/(energie_dichte/3600)
-    print(menge, "[kg]")
-    return menge
-
-
-#Berechnung der materialkosten
-def material_kosten(menge, preis):
-
-    kosten = menge * preis
-    print(kosten, "[€]")
-    return kosten
-
-#Berechnung der silo kosten
-def silo_kosten(menge, dichte, silo):
-    silo_ko = (menge/dichte) * silo
-    print(silo_ko, "[€]")
-    return silo_ko
-
-def wirbel_kosten(waermemenge, wirbelschicht_preis):
-    wi_kosten = (waermemenge*1000000) * (wirbelschicht_preis/4380)  #4380 Winterstunden im Jahr (8760/2)
-    print(wi_kosten, "[€]")
-    return wi_kosten
-
-
-def lichtbogen_kosten(lichtbogen_preis, menge):
-    li_kosten = menge * lichtbogen_preis
-    print(li_kosten, "[€]")
-    return li_kosten
+print("Material Menge Zeolith",Zeolith13x.material_menge())
 
 
 
-#silo_kosten(material_menge(energie_dichte, waermemenge), dichte, silo)
-#wirbel_kosten(waermemenge, wirbelschicht_preis)
-#lichtbogen_kosten(lichtbogen_preis, material_menge(energie_dichte, waermemenge))
 
+
+#Mgso4.plot_mwh()
+#Zeolith13x.plot_mwh()
+#plt.show()
+Mgso4.plot()
+Mgcl2.plot()
+Zeolith4a.plot()
+Zeolith13x.plot()
+
+plt.show()
 
 
 
