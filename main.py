@@ -13,6 +13,14 @@ dichte = 2320.0 #[kg/m^3]
 
 waermemenge = 2.06  #[GWh]
 
+wm_list = [312.06, 57.75, 20.68, 18.84, 7.64, 2.72]
+
+wm_names = ["groß", "mittel mit ausgedehntem","mittel", "mittel kleink", "klein", "Landesgemeinde"]
+
+
+
+leistung = [142560, 38880, 12960, 12960, 6480, 6480]
+
 preis = 0.125  #[€/kg]
 
 #menge = 0
@@ -35,7 +43,7 @@ abgas_wasser = 50 #[€/kw]
 
 lebensdauer = 25  # Jahre
 
-
+i = 2
 
 
 
@@ -49,36 +57,37 @@ class material:
         self.name = name
 
 
+
 #"#####################################FUNCTIONS###################################"
 
 #Berechnung material menge in [kg]
 
-    def material_menge(self):
-        menge = (waermemenge * 1000) / (self.energie / 3600)
+    def material_menge(self,wm):
+        menge = (wm * 1000) / (self.energie / 3600)
         #print("menge in",menge, "[kg]")
         return menge
 
 
 #Berechnung Material kosten in [€]
 
-    def material_kosten(self):
-        kosten = (self.material_menge() * self.preis)
+    def material_kosten(self, wm):
+        kosten = (self.material_menge(wm) * self.preis)
         print("material kosten in", kosten, "[€]")
         return kosten
 
 
 #Berechnung Silo kosten in [€]
 
-    def silo_kosten(self):
-        silo_ko = (self.material_menge() / dichte) * silo
+    def silo_kosten(self, wm_list):
+        silo_ko = (self.material_menge(wm_list) / self.dichte) * silo
         print("silo kosten", silo_ko, "[€]")
         return silo_ko
 
 
 #Berechnet Wirbelschichtreaktor kosten in [€]
 
-    def wirbel_kosten(self):
-        wi_kosten = (waermemenge * 1000000) * (wirbelschicht_preis / 4380)  # 4380 Winterstunden im Jahr (8760/2)
+    def wirbel_kosten(self, leistung):
+        wi_kosten = (leistung) * (wirbelschicht_preis)  # 4380 Winterstunden im Jahr (8760/2)
         #wi_wartungs_kosten = wi_kosten * 0.1 * lebensdauer # Wartungskosten 1%
         #wi_kosten = wi_kosten + wi_wartungs_kosten
         print("wirbelschichtreaktor kosten", wi_kosten, "[€]")
@@ -136,7 +145,7 @@ class material:
         grid = ()
         x = self.name
         y1 = self.material_kosten() / (waermemenge * 1000)
-        y2 = self.silo_kosten() / (waermemenge * 10000)
+        y2 = self.silo_kosten() / (waermemenge * 1000)
         y3 = self.wirbel_kosten() / (waermemenge * 1000)
 
         #adding list y1 and y2
@@ -162,16 +171,24 @@ class material:
         #plt.show()
 
 
+    def rechnung(self, leistung, wm_list):
+        x = self.name
+        y1 = self.material_kosten(wm_list)
+        y2 = self.silo_kosten(wm_list)
+        y3 = self.wirbel_kosten(leistung)
 
-    def plot(self):
+        return x,y1,y2,y3
+
+
+    def plot(self,leistung, wm_list, wm_names):
         width = 0.25
         sum_list = []
         ax = []
         grid = ()
-        x = self.name
-        y1 = self.material_kosten()
-        y2 = self.silo_kosten()
-        y3 = self.wirbel_kosten()
+        x = wm_names
+        y1 = self.material_kosten(wm_list)
+        y2 = self.silo_kosten(wm_list)
+        y3 = self.wirbel_kosten(leistung)
 
         #adding list y1 and y2
         #for (y1, y2) in zip(y1, y2):
@@ -211,29 +228,40 @@ Sio2 = material(32.43, 2500, 0.5, "Sio2")
 Mgo = material(24.75, 3580, 0.15, "Mgo")
 
 
-
-
-
-
-
-
-
-Mgo.plot_mwh()
-Mgso4.plot_mwh()
-#Zeolith4a.plot_mwh()
-#Zeolith13x.plot()
-Sio2.plot_mwh()
+for i in range(len(wm_list)):
+    Zeolith13x.plot(leistung[i], wm_list[i], wm_names[i])
+    #if i == 5:
+       # plt.show()
 
 plt.show()
+
+#Zeolith13x.plot(leistung[1],wm_list[1])
+#Zeolith13x.plot(leistung[2],wm_list[2])
+#Zeolith13x.plot(leistung[3],wm_list[3])
+#Zeolith13x.plot(leistung[4],wm_list[4])
+#Zeolith13x.plot(leistung[5],wm_list[5])
+#Zeolith13x.plot(leistung[0],wm_list[0])
+
+
+
+#Zeolith13x.plot(leistung, wm)
+
+
+
+#Mgo.plot_mwh()
+#Mgso4.plot_mwh()
+#Zeolith4a.plot_mwh()
+#Zeolith13x.plot()
+#Sio2.plot_mwh()
+
+#plt.show()
 #Berechnung der Menge an benötigtem Material
 
-Mgo.plot()
-Mgso4.plot()
-#Zeolith4a.plot_mwh()
 #Zeolith13x.plot()
-Sio2.plot()
+#Mgso4.plot()
 
-plt.show()
+
+#plt.show()
 
 
 Mgo.tauscher_luft_wasser()
