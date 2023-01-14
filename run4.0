@@ -1,0 +1,423 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+
+
+
+
+
+energie_dichte = 4.24  #[Mj/kg]
+
+dichte = 700.0 #[kg/m^3]
+
+waermemenge = 7.64  #[GWh]
+
+preis = 0.125  #[€/kg]
+
+#menge = 0
+
+silo = 475 #[€/m^3]
+
+wirbelschicht_preis = 1000 #[€/kW]
+
+lichtbogen_preis = 0.6 #[€/kg] #600 #[€/t]
+
+transport_preis = 0.1 #[€/tkm]
+
+strecke = 100 #[km]
+
+luft_wasser_rippenrohr = 30 #[€/kw]
+
+wasser_wasser_rohr = 10 #[€/kw]
+
+abgas_wasser = 50 #[€/kw]
+
+lebensdauer = 20  # Jahre
+
+discount_rate = 0.02  # %
+
+solarthermie_kosten = 5 #[€/kWh]
+
+abwärme_kosten = 5 #[€/kWh]
+
+massenstrom = 180 #[kg/s]
+
+luftdichte = 1.204 #[kg/m^3]
+
+anschluss_tcs = 250 #[€/kW]
+
+wm_list = [312.06, 57.75, 20.68, 18.84, 7.64, 2.72]
+
+wm_list_groß = [312.06, 57.75, 20.68]
+
+wm_list_klein = [18.84, 7.64, 2.72]
+
+wm_names = ["312.06 GWh", "57.75 GWh", "mittel kleink", "klein", "Landesgemeinde"]
+
+wm_names_groß = ["312.06 GWh", "57.75 GWh","20.68 GWh"]
+
+wm_names_klein = ["18.84 GWh", "7.64 GWh", "2.72 GWh"]
+
+leistung_groß = [142560, 38880, 12960]
+
+leistung_klein = [12960, 6480, 6480]
+
+leistung = [142560, 38880, 12960, 12960, 6480, 6480]
+
+
+"#####################CLASS########################"
+
+class material:
+    def __init__(self, energie, dichte, preis, name):
+        self.energie = energie
+        self.dichte = dichte
+        self.preis = preis
+        self.name = name
+
+
+#"#####################################FUNCTIONS###################################"
+
+#'investitionskosten'
+
+#Berechnung material menge in [kg]
+
+    def material_menge(self, wm):
+        menge = (wm * 1000) / (self.energie / 3600)
+        #print("menge in",menge, "[kg]")
+        return menge
+
+
+#Berechnung Material kosten in [€]
+
+    def material_kosten(self, wm):
+        kosten = (self.material_menge(wm) * self.preis)
+        #print("material kosten in", kosten, "[€]")
+        return kosten
+
+
+#Berechnung Silo kosten in [€]
+
+    def silo_kosten(self, wm):
+        silo_ko = (self.material_menge(wm) / self.dichte) * silo
+        #print("silo kosten", silo_ko, "[€]")
+        return silo_ko
+
+
+#Berechnet Wirbelschichtreaktor kosten in [€]
+
+    def wirbel_kosten(self, leistung):
+        wi_kosten = leistung * wirbelschicht_preis
+
+        #wi_kosten = (waermemenge * 1000000) * (wirbelschicht_preis / 4380)  # 4380 Winterstunden im Jahr (8760/2)
+
+        #wi_wartungs_kosten = wi_kosten * 0.1 * lebensdauer # Wartungskosten 1%
+        #wi_kosten = wi_kosten + wi_wartungs_kosten
+        #print("wirbelschichtreaktor kosten", wi_kosten, "[€]")
+        return wi_kosten
+
+
+#Berechnet Lichtbogen kosten in [€]
+
+    def lichtbogen_kosten(self, wm):
+        li_kosten = self.material_menge(wm) * lichtbogen_preis
+        #print("Lichtbogenofen kosten",li_kosten, "[€]")
+        return li_kosten
+
+
+#Berechnet transport kosten mit LKW in [€]
+
+    def transport(self, wm):
+
+        transp_kosten = transport_preis * strecke * (self.material_menge(wm)/1000)
+        print(transp_kosten)
+        return transp_kosten
+
+#Berechnet die Kosten der verschiedenen Wärmetauscher
+
+    def tauscher_luft_wasser(self, leistung):
+
+        tausher_preis = leistung * luft_wasser_rippenrohr  # 4380 Winterstunden im Jahr (8760/2)
+        #tausher_preis = waermemenge * 1000000 * (luft_wasser_rippenrohr/2190)  # 4380 Winterstunden im Jahr (8760/2)
+        #print("yyyyyyy", tausher_preis)
+        return tausher_preis
+
+
+
+    def tauscher_luft_luft(self):
+
+        tausher_preis = ((massenstrom / luftdichte) * 3600) * 0.7  # 0.7 [€/m^3]
+        print("tauscher preis", tausher_preis)
+        return tausher_preis
+
+
+
+    def tauscher_abgas_wasser(self):
+
+        tausher_preis = waermemenge * 1000000 * (abgas_wasser/4380)  # 4380 Winterstunden im Jahr (8760/2)
+
+        return tausher_preis
+
+
+#Berechnet die Anschlusskosten
+
+    def anschluss(self, leistung):
+
+        anschluss_preis = leistung * anschluss_tcs
+        #anschluss_preis = (anschluss_tcs/2190) * (waermemenge * 1000000)
+
+        return anschluss_preis
+
+
+#Service Wartungskosten
+
+    def wartung(self, wm, leistung):
+
+        om = ((self.wirbel_kosten(leistung)*0.01) + (self.silo_kosten(wm)*0.02) + (self.anschluss(leistung) * 0.015))
+
+        wartungskosten_sum = 0
+        for i in range(1, lebensdauer + 1):
+            wartungskosten = ((om) / (1 + discount_rate) ** i)
+            wartungskosten_sum += wartungskosten
+
+
+        return wartungskosten
+
+    def energie_lebensdauer(self, wm):
+
+        #List = []
+        #for each in wm:
+        energieleben_sum = 0
+        for i in range(1, lebensdauer + 1):
+            energieleben = ((wm*1000) / (1 + discount_rate) ** i)
+            energieleben_sum += energieleben
+
+        return energieleben_sum
+
+
+
+############Maintanance###########
+
+
+
+#"#####################PLOTTING######################"
+
+
+    def plot_mwh(self, wm, leistung, wm_names):
+        width = 0.25
+        sum_list = []
+        ax = []
+        grid = ()
+        x = wm_names
+        #x = self.name
+        y1 = (self.material_kosten(wm) / self.energie_lebensdauer(wm)) #(waermemenge(statisch == falsch) * 1000))#/lebensdauer              # /lebensdauer, da die Winterfernwärmemenge pro Jahr anfällt. In den Koste
+        y2 = (self.silo_kosten(wm) / self.energie_lebensdauer(wm)) #(waermemenge * 1000))#/lebensdauer
+        y3 = (self.wirbel_kosten(leistung) / self.energie_lebensdauer(wm)) #(waermemenge * 1000))#/lebensdauer
+        y4 = (self.tauscher_luft_wasser(leistung) / self.energie_lebensdauer(wm)) #(waermemenge * 1000))#/lebensdauer
+        y5 = (self.tauscher_luft_luft() / self.energie_lebensdauer(wm))
+        y6 = (self.anschluss(leistung) / self.energie_lebensdauer(wm)) #(waermemenge * 1000))#/lebensdauer
+        y7 = ((self.wartung(wm, leistung)) / self.energie_lebensdauer(wm)) #(waermemenge * 1000))
+
+        #adding list y1 and y2
+        #for (y1, y2) in zip(y1, y2):
+            #sum_list.append(y1 + y2)
+
+        #plotting stacked bar
+        plt.bar(x, y1, color='#66c2a5', width=width, zorder=3)
+        plt.bar(x, y2, bottom=y1, color='#fc8d62', width=width, zorder=3)
+        plt.bar(x, y3, bottom=y1+y2, color='#8da0cb', width=width, zorder=3)
+        plt.bar(x, y4, bottom=y1+y2+y3, color='dodgerblue', width=width, zorder=3)
+        plt.bar(x, y5, bottom=y1+y2+y3+y4, color='dodgerblue', width=width, zorder=3)
+        plt.bar(x, y6, bottom=y1+y2+y3+y4+y5, color='#ffd92f', width=width, zorder=3)
+        plt.bar(x, y7, bottom=y1 + y2 + y3 + y4 + y5+y6, color='red', width=width, zorder=3)
+
+
+
+        #plotting axes and legend
+
+        plt.ylabel("Kosten [€/MWh]")
+
+        colors = {'Material': '#66c2a5', 'Silo': '#fc8d62', 'Wirbelstoffreaktor': '#8da0cb','Wärmetauscher': 'dodgerblue', 'Anschlusskosten': '#ffd92f', 'Wartung': 'red'}
+        labels = list(colors.keys())
+        handles = [plt.Rectangle((0, 0), 1, 1, color=colors[label]) for label in labels]
+        plt.legend(handles, labels)
+
+        plt.grid(color='k', which='both', linestyle='-', linewidth=1, alpha=0.5, zorder=0, axis='y')
+
+        #plt.show()
+
+
+
+    def plot(self, wm, leistung, wm_names):
+        width = 0.25
+        sum_list = []
+        ax = []
+        grid = ()
+        x = wm_names
+
+        #x = self.name
+        y1 = self.material_kosten(wm)
+        y2 = self.silo_kosten(wm)
+        y3 = self.wirbel_kosten(leistung)
+        y4 = self.tauscher_luft_wasser(leistung)
+        y5 = self.tauscher_luft_luft()
+        y6 = self.anschluss(leistung)
+        y7 = self.wartung(wm, leistung)
+
+        #adding list y1 and y2
+        #for (y1, y2) in zip(y1, y2):
+            #sum_list.append(y1 + y2)
+
+        #plotting stacked bar
+        plt.bar(x, y1, color='#66c2a5', width=width, zorder=3)
+        plt.bar(x, y2, bottom=y1, color='#fc8d62', width=width, zorder=3)
+        plt.bar(x, y3, bottom=y1+y2, color='#8da0cb', width=width, zorder=3)
+        plt.bar(x, y4, bottom=y1+y2+y3, color='dodgerblue', width=width, zorder=3)
+        plt.bar(x, y5, bottom=y1+y2+y3+y4, color='dodgerblue', width=width, zorder=3)
+        plt.bar(x, y6, bottom=y1+y2+y3+y4+y5, color='#ffd92f', width=width, zorder=3)
+        plt.bar(x, y7, bottom=y1 + y2 + y3 + y4 + y5+y6, color='red', width=width, zorder=3)
+
+        #plotting axes and legend
+
+        plt.ylabel("Kosten [€]")
+
+        colors = {'Material': '#66c2a5', 'Silo': '#fc8d62', 'Wirbelstoffreaktor' : '#8da0cb', 'Wärmetauscher': 'dodgerblue', 'Anschlusskosten': '#ffd92f', 'Wartung': 'red' }
+        labels = list(colors.keys())
+        handles = [plt.Rectangle((0, 0), 1, 1, color=colors[label]) for label in labels]
+        plt.legend(handles, labels)
+
+        plt.grid(color='k', which='both', linestyle='-', linewidth=1, alpha=0.5, zorder=0, axis='y')
+        #plt.show()
+
+    def plot_lcos(self):
+        width = 0.25
+        sum_list = []
+        ax = []
+        grid = ()
+        x = self.name
+        y1 = self.lcos_cap_sz1()
+        y2 = self.lcos_om_sz1()
+        # y3 = self.wirbel_kosten()
+
+        # adding list y1 and y2
+        # for (y1, y2) in zip(y1, y2):
+        # sum_list.append(y1 + y2)
+
+        # plotting stacked bar
+        plt.bar(x, y1, color='g', width=width, zorder=3)
+        plt.bar(x, y2, bottom=y1, color='y', width=width, zorder=3)
+        # plt.bar(x, y3, bottom=y1+y2, color='b', width=width, zorder=3)
+
+        # plotting axes and legend
+
+        plt.ylabel("Kosten [€/kWh]")
+
+        colors = {'Kapital': 'green', 'OM': 'yellow'}
+        labels = list(colors.keys())
+        handles = [plt.Rectangle((0, 0), 1, 1, color=colors[label]) for label in labels]
+        plt.legend(handles, labels)
+
+        plt.grid(color='k', which='both', linestyle='-', linewidth=1, alpha=0.5, zorder=0, axis='y')
+        # plt.show()
+
+
+
+
+
+
+
+
+
+
+#"################Definition Materialien(energie, dichte, preis, name)###########################"
+
+#Hydrate
+Mgcl2 = material(4.24, 2320.0, 0.125, "Mgcl2")
+
+Mgso4 = material(3.61, 1670, 0.15, "Mgso4")
+
+#Zeolith
+Zeolith13x = material(0.86, 700.0, 0.96, "Zeolith13x")
+Zeolith4a = material(0.65, 750, 1.28, "Zeolith4a")
+
+#Oxide
+Sio2 = material(32.43, 2500, 0.5, "Sio2")
+Mgo = material(24.75, 3580, 0.15, "Mgo")
+
+
+
+
+
+
+#Mgso4.plot_mwh()
+#Mgcl2.plot_mwh()
+#Zeolith4a.plot_mwh()
+
+#Zeolith13x.plot_mwh()
+
+
+
+#print("Material Menge Zeolith",Zeolith13x.material_menge())
+
+
+
+
+
+#Mgso4.plot_mwh()
+#Zeolith13x.plot_mwh()
+#plt.show()
+#Mgso4.plot(wm_list, leistung)
+
+#plt.axhline(y=80, color='r', linestyle='--')
+
+for i in range(len(wm_list_klein)):
+    plt.axhline(y=80, color='r', linestyle='--', zorder=1000)
+    plt.axhline(y=100, color='b', linestyle='--', zorder=1000)
+    Zeolith13x.plot_mwh(wm_list_klein[i],leistung_klein[i], wm_names_klein[i])
+plt.show()
+
+
+for i in range(len(wm_list_klein)):
+    Zeolith13x.plot(wm_list_klein[i],leistung_klein[i], wm_names_klein[i])
+plt.show()
+
+for i in range(len(wm_list_groß)):
+    Zeolith13x.plot_mwh(wm_list_groß[i],leistung_groß[i], wm_names_groß[i])
+    plt.axhline(y=80, color='r', linestyle='--', zorder=1000)
+    plt.axhline(y=100, color='b', linestyle='--', zorder=1000)
+plt.show()
+
+for i in range(len(wm_list_groß)):
+    Zeolith13x.plot(wm_list_groß[i],leistung_groß[i], wm_names_groß[i])
+plt.show()
+
+
+for i in range(len(wm_list_klein)):
+    print("Energieleben",Zeolith13x.energie_lebensdauer(wm_list_klein[i]))
+
+Zeolith13x.plot_mwh(wm_list_klein[2], leistung_klein[2], "Zeolith 13x")
+Mgso4.plot_mwh(wm_list_klein[2], leistung_klein[2], "MgSo4")
+Mgcl2.plot_mwh(wm_list_klein[2], leistung_klein[2], "MgCl2")
+
+plt.show()
+
+
+"""
+
+
+Zeolith13x.plot_mwh(wm_list_klein[2], leistung_klein[2], wm_names_klein[2])
+Zeolith13x.plot_mwh(wm_list_klein[1], leistung_klein[1], wm_names_klein[1])
+Zeolith13x.plot_mwh(wm_list_klein[0], leistung_klein[0], wm_names_klein[0])
+
+
+print("material 2",Zeolith13x.wirbel_kosten(leistung_klein[2]))
+print("material 7",Zeolith13x.wirbel_kosten(leistung_klein[1]))
+print("material 18",Zeolith13x.wirbel_kosten(leistung_klein[0]))
+print("material 20",Zeolith13x.wirbel_kosten(leistung_groß[2]))
+print("material 57",Zeolith13x.wirbel_kosten(leistung_groß[1]))
+print("material 312",Zeolith13x.wirbel_kosten(leistung_groß[0]))
+
+#Zeolith13x.plot_mwh(wm_list[2],leistung[2], wm_names[2])
+
+plt.show()
+"""
